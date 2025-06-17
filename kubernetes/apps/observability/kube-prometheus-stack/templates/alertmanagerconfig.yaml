@@ -1,0 +1,95 @@
+---
+# yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/monitoring.coreos.com/alertmanagerconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: alertmanager
+spec:
+  global:
+    smtp_hello: "<path:kubernetes/data/internal/smtp-relay#INGRESS_DOMAIN>"
+    smtp_smarthost: "smtp-relay.networking.svc.cluster.local:25"
+    smtp_from: "<path:kubernetes/data/internal/base#MAIL_FROM_CLUSTER>"
+    smtp_require_tls: false
+  inhibitRules:
+    - equal:
+        - alertname
+        - namespace
+      sourceMatch:
+        - name: severity
+          value: critical
+          matchType: =
+      targetMatch:
+        - name: severity
+          value: warning
+          matchType: =
+  route:
+    receiver: email-cluster
+    groupBy:
+      - alertname
+      - job
+    continue: false
+    routes:
+      - receiver: "null"
+        matchers:
+          - alertname = InfoInhibitor
+      - receiver: healthchecks
+        matchers:
+          - alertname = Watchdog
+        repeat_interval: 15m
+      - receiver: pushover
+        continue: true
+        matchers:
+          - severity = "critical"
+      - receiver: email-cluster
+        continue: true
+        matchers:
+          - severity = "critical"
+      - receiver: discord-csp
+        matchers:
+          - alertname = CSPAlert
+      - receiver: email-hypervisor
+        matchers:
+          - instance =~ "<path:kubernetes/data/internal/base#IP_HYPERVISOR>:[0-9]+"
+          - instance =~ "<path:kubernetes/data/internal/base#IP_ROUTER>:[0-9]+"
+          - instance =~ "<path:kubernetes/data/internal/base#IP_SUPERVISOR>:[0-9]+"
+      - receiver: email-nas
+        matchers:
+          - instance =~ "<path:kubernetes/data/internal/base#IP_NAS>:[0-9]+"
+          - instance =~ "<path:kubernetes/data/internal/base#IP_PBS>:[0-9]+"
+    groupWait: 1m
+    groupInterval: 10m
+    repeatInterval: 12h
+  receivers:
+    - name: "null"
+    - name: "email-hypervisor"
+      emailConfigs:
+        - from: "<path:kubernetes/data/internal/base#MAIL_FROM_HYPERVISOR>"
+          to: "<path:kubernetes/data/internal/smtp-relay#INGRESS_MAINTENANCE_EMAIL>"
+    - name: "email-cluster"
+      emailConfigs:
+        - from: "<path:kubernetes/data/internal/base#MAIL_FROM_CLUSTER>"
+          to: "<path:kubernetes/data/internal/smtp-relay#INGRESS_MAINTENANCE_EMAIL>"
+    - name: "email-nas"
+      emailConfigs:
+        - from: "<path:kubernetes/data/internal/base#MAIL_FROM_NAS>"
+          to: "<path:kubernetes/data/internal/smtp-relay#INGRESS_MAINTENANCE_EMAIL>"
+    - name: "discord-csp"
+      discordConfigs:
+        - apiURL: "<path:kubernetes/data/internal/kube-prometheus-stack#DISCORD_CSP_WEBHOOK>"
+          message: '{{ template "homelab.discord.message" . }}'
+          title: '{{ template "homelab.discord.title" . }}'
+    - name: "healthchecks"
+      webhookConfigs:
+        - sendResolved: false
+          url: "<path:kubernetes/data/internal/kube-prometheus-stack#EXTERNAL_PING_URL>"
+          httpConfig:
+            followRedirects: true
+    - name: "pushover"
+      pushoverConfigs:
+        - html: true
+          message: '{{ template "homelab.pushover.message" . }}'
+          priority: 1
+          title: '{{ template "homelab.pushover.title" . }}'
+          token: "<path:kubernetes/data/internal/kube-prometheus-stack#ALERTMANAGER_PUSHOVER_TOKEN>"
+          urlTitle: View in Alertmanager
+          userKey: "<path:kubernetes/data/internal/kube-prometheus-stack#PUSHOVER_USER_KEY>"
