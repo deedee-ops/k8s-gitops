@@ -62,6 +62,11 @@ kube-prometheus-stack:
           - "alertmanager.{{ .global.rootDomain }}"
     alertmanagerSpec:
       externalUrl: "https://alertmanager.{{ .global.rootDomain }}"
+  prometheus:
+    route:
+      main:
+        hostnames:
+          - "prometheus.{{ .global.rootDomain }}"
 
 rook-ceph-cluster:
   network:

@@ -25,7 +25,7 @@ kube-prometheus-stack:
       storage:
         volumeClaimTemplate:
           spec:
-            storageClassName: "@todo"
+            storageClassName: ceph-block
             resources:
               requests:
                 storage: 64Mi
@@ -97,6 +97,13 @@ kube-prometheus-stack:
             targetLabel: kubernetes_node
 
   prometheus:
+    route:
+      main:
+        enabled: true
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
     prometheusSpec:
       podMonitorSelectorNilUsesHelmValues: false
       probeSelectorNilUsesHelmValues: false
@@ -113,7 +120,7 @@ kube-prometheus-stack:
       storageSpec:
         volumeClaimTemplate:
           spec:
-            storageClassName: "@todo"
+            storageClassName: ceph-block
             resources:
               requests:
                 storage: 50Gi
